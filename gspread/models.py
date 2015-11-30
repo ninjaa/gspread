@@ -215,10 +215,15 @@ class Worksheet(object):
     def updated(self):
         """Updated time in RFC 3339 format"""
         return self._element.find(_ns('updated')).text
-
+    
     def get_id_fields(self):
         return {'spreadsheet_id': self.spreadsheet.id,
                 'worksheet_id': self.id}
+        
+    def get_public_endpoint(self, response_format = "json"):
+        url_params = self.get_id_fields()
+        url_params['response_format'] = response_format
+        return "https://spreadsheets.google.com/feeds/list/{spreadsheet_id}/{worksheet_id}/public/values?alt={response_format}".format(**url_params)
 
     def _cell_addr(self, row, col):
         return 'R%sC%s' % (row, col)
