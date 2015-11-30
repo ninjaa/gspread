@@ -386,6 +386,16 @@ class Worksheet(object):
         values = [numericise_all(row, empty2zero) for row in data[idx + 1:]]
 
         return [dict(zip(keys, row)) for row in values]
+    
+    def get_record_by_row(self, row=2, empty2zero=False, head=1):
+        """
+        Returns a dictionary representing a single record from a single row
+        """
+                
+        keys = self.row_values(head)
+        values = numericise_all(self.row_values(row), empty2zero)
+
+        return dict(zip(keys, values))
 
     def row_values(self, row):
         """Returns a list of all values in a `row`.
