@@ -388,10 +388,11 @@ class Worksheet(object):
         return [dict(zip(keys, row)) for row in values]
     
     def get_record_by_row(self, row=2, empty2zero=False, head=1):
-        """
-        Returns a dictionary representing a single record from a single row
-        """
-                
+        """Returns a dictionary representing a single record from a single row
+        
+        :param row: row for which to get a record for
+        :param empty2zero: determines whether empty cells are converted to zeros.
+        :param head: determines wich row to use as keys, starting from 1"""            
         keys = self.row_values(head)
         values = numericise_all(self.row_values(row), empty2zero)
 
