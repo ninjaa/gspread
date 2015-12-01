@@ -11,6 +11,7 @@ This module contains common spreadsheets' models
 import re
 from collections import defaultdict
 from itertools import chain
+import itertools
 
 from xml.etree import ElementTree
 from xml.etree.ElementTree import Element, SubElement
@@ -21,7 +22,6 @@ from .urls import construct_url
 from .utils import finditem, numericise_all
 
 from .exceptions import IncorrectCellLabel, WorksheetNotFound, CellNotFound
-
 
 try:
     unicode
@@ -46,6 +46,23 @@ def _escape_attrib(text, encoding=None, replace=None):
 
 
 ElementTree._escape_attrib = _escape_attrib
+
+
+def paginate(iterable, page_size):
+    """
+    This version works with any (possibly lazy and non-sliceable) iterable 
+    and produces a lazy iterable 
+    (in other words, it's a generator and works with all types of sequences, including other generators):
+
+    http://stackoverflow.com/questions/3744451/is-this-how-you-paginate-or-is-there-a-better-algorithm
+    """
+    while True:
+        i1, i2 = itertools.tee(iterable)
+        iterable, page = (itertools.islice(i1, page_size, None),
+                list(itertools.islice(i2, page_size)))
+        if len(page) == 0:
+            break
+        yield page
 
 
 class Spreadsheet(object):
@@ -236,6 +253,16 @@ class Worksheet(object):
         feed = self.client.get_cells_feed(self)
         return [Cell(self, elem) for elem in feed.findall(_ns('entry'))]
 
+    def _fetch_cells_by_rc(self, min_row = 0, min_col = 0, max_row = 0, max_col = 0):
+        param_str = "&".join([
+            "min-row={}".format(min_row),            
+            "min-col={}".format(min_col),
+            "max-row={}".format(max_row),            
+            "max-col={}".format(max_col),
+        ])
+        feed = self.client.get_cells_feed(self, params=param_str)
+        return [Cell(self, elem) for elem in feed.findall(_ns('entry'))]
+
     _MAGIC_NUMBER = 64
     _cell_addr_re = re.compile(r'([A-Za-z]+)(\d+)')
 
@@ -397,6 +424,31 @@ class Worksheet(object):
         values = numericise_all(self.row_values(row), empty2zero)
 
         return dict(zip(keys, values))
+
+    def multiple_rows_values(self, min_row, max_row):
+        start_cell = self.get_addr_int(min_row, 1)
+        end_cell = self.get_addr_int(max_row, self.col_count)
+        
+        multiple_rows_cells = self.range('%s:%s' % (start_cell, end_cell))
+        return [cell.value for cell in multiple_rows_cells]
+    
+    def get_records_by_multiple_rows(self, min_row=None, max_row=None, empty2zero=False, head=1):
+        if min_row == None or max_row == None:
+            raise ValueError("min_row or max_row parameters not provided")
+        
+        col_count = self.col_count
+        row_count = self.row_count
+        num_rows = max_row - min_row
+        
+        if min_row < head or max_row > row_count or num_rows < 1:
+            raise ValueError("min_row ({}) or max_row ({}) parameters are out of bounds".format(min_row, max_row))
+    
+        keys = self.row_values(head)
+        data = self.multiple_rows_values(min_row, max_row)
+        values = [numericise_all(row, empty2zero) for row in paginate(data, col_count)]
+        
+        return [dict(zip(keys, row)) for row in values]
+        
 
     def row_values(self, row):
         """Returns a list of all values in a `row`.
